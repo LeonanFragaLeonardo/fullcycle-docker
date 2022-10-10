@@ -1,0 +1,46 @@
+version: '3'
+services:
+  sqldb:
+    container_name: mysql_db
+    image: mysql:5.7
+    restart: always
+    volumes: 
+      - /mysql/db-data:/var/lib/mysql
+      - ./mysql/db-data/scripts/:/docker-entrypoint-initdb.d
+    environment:
+      - MYSQL_DATABASE=nodedb
+      - MYSQL_USER=nodeapp
+      - MYSQL_ROOT_PASSWORD=N0d34pp_R0ot
+      - MYSQL_PASSWORD=N0d34pp
+    networks:
+      - app-network
+    command: 
+      --init-file /docker-entrypoint-initdb.d/schema.sql
+  backend:
+    container_name: backend
+    build: 
+      context: ./backend
+    entrypoint: dockerize -wait tcp://sqldb:3306 -timeout=20s docker-entrypoint.sh
+    tty: true
+    command: node index.js
+    networks:
+      - app-network
+    volumes:
+      - ./backend:/usr/src/app
+    depends_on:
+      - sqldb
+  nginx:
+    container_name: nginx
+    restart: always
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.prod
+    networks:
+      - app-network
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+networks:
+  app-network:
+    driver: bridge
